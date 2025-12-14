@@ -1,4 +1,4 @@
-#1344678447
+import base64
 import os
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
@@ -6,12 +6,22 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from fastapi import FastAPI
 import uvicorn
 import threading
+import aiohttp
 
-TELEGRAM_TOKEN = '1873920038:AAGbA5l5Uv0qqLRxYrcs1iShTaZ0MBH7eM4'
+TELEGRAM_TOKEN = '7973799059:AAGKwxTXJ46EI4XfQGKNubTwkkM8reYop9I'
 WEB_SERVER_URL = 'http://web-server:3000'
 telegram_app = None
 
 app = FastAPI()
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # папка со скриптом
+UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+print("UPLOAD_DIR:", UPLOAD_DIR, "Exists?", os.path.exists(UPLOAD_DIR))
+
+def save_photo_file(file_id, file):
+    file_path = os.path.join(UPLOAD_DIR, f"{file_id}.jpg")
+    return file_path
 
 @app.post("/message")
 async def send_text_to_user(data: dict):
@@ -78,22 +88,58 @@ async def button_click(update: Update, context):
 async def start(update: Update, context):
     await update.message.reply_text("Привет! Отправляй сообщения, они появятся в веб-интерфейсе. Ответы придут от веб-интерфейса.")
 
+# --- Сохраняем фото на сервер и отправляем ссылку на фронт ---
 async def handle_message_from_user(update: Update, context):
-    if update.message and update.message.text:
-        message_text = update.message.text
-        sender_nick = update.message.from_user.username or update.message.from_user.full_name
-        chat_id = update.message.chat_id
+    if not update.message:
+        return
+
+    chat_id = update.message.chat_id
+    sender_nick = update.message.from_user.username or update.message.from_user.full_name
+
+    # Текст
+    if update.message.text:
         payload = {
             'chat_id': str(chat_id),
             'sender_nick': sender_nick,
-            'text': message_text
+            'text': update.message.text,
+            'platform': 'telegram'  # Добавляем платформу
         }
         try:
-            response = requests.post(WEB_SERVER_URL + '/user_message', json=payload)
-            if response.status_code != 200:
-                print(f"Ошибка при отправке сообщения на веб-сервер: {response.text}")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{WEB_SERVER_URL}/user_message", json=payload) as response:
+                    if response.status != 200:
+                        print(f"Error sending message: {response.status}")
         except Exception as e:
-            print(f"Не удалось отправить сообщение: {e}")
+            print(f"Error in handle_message_from_user: {e}")
+
+    # Фото
+    elif update.message.photo:
+        photo = update.message.photo[-1]
+        file_id = photo.file_id
+
+        # Получаем файл и сохраняем на сервере
+        file = await telegram_app.bot.get_file(file_id)
+        file_path = save_photo_file(file_id, file)
+        await file.download_to_drive(file_path)
+
+        # Формируем URL для фронтенда
+        photo_url = f"http://web-server:3000/static/uploads/{file_id}.jpg"
+
+        payload = {
+            'chat_id': str(chat_id),
+            'sender_nick': sender_nick,
+            'photoUrl': photo_url,
+            'platform': 'telegram'  # Добавляем платформу
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{WEB_SERVER_URL}/user_photo", json=payload) as response:
+                    if response.status != 200:
+                        print(f"Error sending photo: {response.status}")
+        except Exception as e:
+            print(f"Error in handle_message_from_user (photo): {e}")
+
+
 
 def run_fastapi():
     uvicorn.run(app, host="0.0.0.0", port=8080)

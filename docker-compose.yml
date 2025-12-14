@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   telegram-bot:
     build:
@@ -5,8 +7,30 @@ services:
       dockerfile: ./bot/Dockerfile.bot
     volumes:
       - ./bot/bot.py:/app/bot.py
+      - ./bot/vk_bot.py:/app/vk_bot.py
+    depends_on:
+      - web-server  # Убрали condition
+    restart: unless-stopped  # Изменено на unless-stopped
+    environment:
+      - TELEGRAM_TOKEN=7973799059:AAGKwxTXJ46EI4XfQGKNubTwkkM8reYop9I
+      - WEB_SERVER_URL=http://web-server:3000
+
+  vk-bot:
+    build:
+      context: .
+      dockerfile: ./bot/Dockerfile.bot
+    command: python vk_bot.py
+    volumes:
+      - ./bot/vk_bot.py:/app/vk_bot.py
+      - ./bot/bot.py:/app/bot.py
     depends_on:
       - web-server
+    restart: always
+    environment:
+      - VK_TOKEN=vk1.a.-y-uzbN9xeeS6X-U4_e-p2P74rBUui25--qf55m-Yh9oVrd22yiF9NKXJ6ugOzV4hlxVPF1RPEwYaP_tbjDiPex5lormpsa8p3mSKCAsZtNf43P_9gLvo-eS2pwW5OQvSY0IRytVWSXvT8qocfINyVXy_mDlMzP36RV795ZMbe_O_Tjdl4xIl4edmm3-1x7AmdJgXVCYNk-OUUwe2w5ycg
+      - WEB_SERVER_URL=http://web-server:3000
+    ports:
+      - "8081:8081"  # Добавляем порт для Flask API
 
   web-server:
     build:
@@ -19,3 +43,6 @@ services:
       - ./web/package.json:/app/package.json
       - ./web/server.js:/app/server.js
       - ./web/scripts.js:/app/scripts.js
+      - ./web/styles.css:/app/styles.css
+    restart: unless-stopped
+    # Убрали healthcheck полностью

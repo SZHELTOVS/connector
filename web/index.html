@@ -3,34 +3,117 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telegram Квиз</title>
-  <style>
-    body { font-family: Arial, sans-serif; }
-    #messages { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; }
-    .message { margin-bottom: 10px; padding: 5px; background: #f0f0f0; }
-    #send-text-form { margin-bottom: 20px; }
-    #sending_text { width: 100%; margin-bottom: 10px; }
-  </style>
+  <title>Multi-Messenger Support Panel</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-  <h1>Квиз Telegram</h1>
-  <h6>чат id можно узнать свой чат id отправив любое сообщение боту, цифры в появившемся сообщении и есть чат id</h6>
-<!-- Окошко отправки обычного текстового сообщения -->
-  <div id="send-text-form">
-    <input type="text" id="chat_id" placeholder="Введите Telegram chat_id">
-    <textarea id="sending_text" placeholder="Введите вопрос"></textarea>
-    <button onclick="sendText()">Отправить вопрос</button>
+  <div class="container">
+    <!-- Боковая панель с активными чатами -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2><i class="fas fa-comments"></i> Активные чаты</h2>
+        <button class="btn-refresh" onclick="loadActiveChats()">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+      </div>
+      <div id="active-chats" class="chats-list">
+        <!-- Список чатов будет загружен динамически -->
+      </div>
+      <div class="sidebar-footer">
+        <div class="platform-stats">
+          <div class="platform-stat">
+            <i class="fab fa-telegram" style="color: #0088cc;"></i>
+            <span id="telegram-count">0</span>
+          </div>
+          <div class="platform-stat">
+            <i class="fab fa-vk" style="color: #4c75a3;"></i>
+            <span id="vk-count">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Основная область -->
+    <div class="main-content">
+      <!-- Заголовок -->
+      <header class="header">
+        <h1><i class="fas fa-headset"></i> Панель поддержки</h1>
+        <div class="header-info">
+          <div class="current-chat" id="current-chat-info">
+            <span>Выберите чат для начала общения</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Область сообщений -->
+      <div class="messages-container">
+        <div id="messages" class="messages">
+          <!-- Сообщения будут отображаться здесь -->
+        </div>
+      </div>
+
+      <!-- Панель отправки сообщений -->
+      <div class="message-input-container">
+        <div class="chat-info" id="selected-chat-info">
+          <span>Чат не выбран</span>
+        </div>
+        <div class="input-group">
+          <input type="text" id="sending_text" placeholder="Введите сообщение..." 
+                 onkeypress="handleKeyPress(event)">
+          <button onclick="sendText()" class="btn-send">
+            <i class="fas fa-paper-plane"></i> Отправить
+          </button>
+        </div>
+        
+        <!-- Дополнительные функции -->
+        <div class="extra-functions">
+          <button onclick="showKeyboardModal()" class="btn-secondary">
+            <i class="fas fa-keyboard"></i> Создать клавиатуру
+          </button>
+          <button onclick="clearChat()" class="btn-secondary">
+            <i class="fas fa-trash"></i> Очистить чат
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
-<!-- Окошко отправки inline keyboard, это клавиатура внутри опр сообщения-->
-  <div id="send-keyboard-form">
-    <input id="keyboard_title" type="text" placeholder="Введите title для клавиатуры">
-    <input id="keyboard_chat_id" type="text" placeholder="Введите Telegram chat_id">
-    <button onclick="add_button()">добавить кнопку</button>
-    <ul id="button_vals"></ul>
-    <button onclick="sendKeyboard()">Отправить клавиатуру</button>
+
+  <!-- Модальное окно для создания клавиатуры -->
+  <div id="keyboard-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-keyboard"></i> Создание клавиатуры</h3>
+        <span class="close" onclick="closeKeyboardModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="keyboard_title">Заголовок сообщения:</label>
+          <input type="text" id="keyboard_title" placeholder="Введите заголовок">
+        </div>
+        <div class="form-group">
+          <label>Кнопки:</label>
+          <div class="buttons-container">
+            <div id="button_vals" class="buttons-list"></div>
+            <div class="buttons-controls">
+              <input type="text" id="new_button_text" placeholder="Текст кнопки">
+              <button onclick="addButton()" class="btn-small">
+                <i class="fas fa-plus"></i> Добавить
+              </button>
+              <button onclick="deleteButtons()" class="btn-small btn-danger">
+                <i class="fas fa-trash"></i> Очистить
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button onclick="sendKeyboard()" class="btn-primary">
+            <i class="fas fa-paper-plane"></i> Отправить клавиатуру
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
-<!-- Окошко отправки обчной клавиатуры, виден без сообщений, просто так -->
-  <div id="messages"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="scripts.js"></script>
